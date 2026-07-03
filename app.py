@@ -30,9 +30,10 @@ def init_db():
         print("Skipping DB Init: No DATABASE_URL provided.")
         return
 
-    conn = get_db_connection()
-    cur = conn.cursor()
     try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
         # Create Users Table
         cur.execute('''
             CREATE TABLE IF NOT EXISTS users (
@@ -71,12 +72,10 @@ def init_db():
             cur.executemany('INSERT INTO knowledge_base (question, answer, source) VALUES (%s, %s, %s)', seed_data)
         
         conn.commit()
-    except Exception as e:
-        print(f"Database initialization error: {e}")
-        conn.rollback()
-    finally:
         cur.close()
         conn.close()
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
 # Run DB init on startup
 init_db()
@@ -98,18 +97,18 @@ def signup():
     if not username or not password:
         return jsonify({"error": "Username and password required"}), 400
         
-    conn = get_db_connection()
-    cur = conn.cursor()
     try:
+        conn = get_db_connection()
+        cur = conn.cursor()
         cur.execute('INSERT INTO users (username, password, role) VALUES (%s, %s, %s)', (username, password, 'user'))
         conn.commit()
-        return jsonify({"message": "Account created successfully", "user": username, "role": "user"}), 201
-    except psycopg.IntegrityError:
-        conn.rollback()
-        return jsonify({"error": "Username already exists"}), 400
-    finally:
         cur.close()
         conn.close()
+        return jsonify({"message": "Account created successfully", "user": username, "role": "user"}), 201
+    except psycopg.IntegrityError:
+        return jsonify({"error": "Username already exists"}), 400
+    except Exception as e:
+        return jsonify({"error": "Database error occurred."}), 500
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -117,19 +116,20 @@ def login():
     username = data.get('username')
     password = data.get('password')
     
-    conn = get_db_connection()
-    # Use dict_row to return results as dictionaries in psycopg3
-    cur = conn.cursor(row_factory=dict_row)
     try:
+        conn = get_db_connection()
+        cur = conn.cursor(row_factory=dict_row)
         cur.execute('SELECT * FROM users WHERE username = %s AND password = %s', (username, password))
         user = cur.fetchone()
+        cur.close()
+        conn.close()
+        
         if user:
             return jsonify({"message": "Login successful", "user": user['username'], "role": user['role']}), 200
             
         return jsonify({"error": "Invalid credentials"}), 401
-    finally:
-        cur.close()
-        conn.close()
+    except Exception as e:
+        return jsonify({"error": "Database connection failed."}), 500
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -142,22 +142,23 @@ def chat():
     last_user_msg_lower = last_user_msg.lower()
     
     # 1. OFFLINE CHECK: Scan PostgreSQL Database for an answer
-    conn = get_db_connection()
-    cur = conn.cursor(row_factory=dict_row)
     try:
+        conn = get_db_connection()
+        cur = conn.cursor(row_factory=dict_row)
         cur.execute('SELECT question, answer FROM knowledge_base')
         kb_entries = cur.fetchall()
+        cur.close()
+        conn.close()
+        
         for entry in kb_entries:
             db_q = entry['question'].lower().strip()
-            # Simple heuristic matching
             if (db_q == last_user_msg_lower) or (len(db_q) > 10 and (db_q in last_user_msg_lower or last_user_msg_lower in db_q)):
                 return jsonify({
                     "response": entry['answer'], 
                     "source": "offline"
                 }), 200
-    finally:
-        cur.close()
-        conn.close()
+    except Exception as e:
+        print(f"Offline DB check skipped due to error: {e}")
 
     # 2. GEMINI FALLBACK: Call AI
     if not GEMINI_API_KEY:
@@ -173,51 +174,60 @@ def chat():
         started_with_user = True
         formatted_history.append({"role": role, "parts": [{"text": msg['text']}]})
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # FIX: Using a stable, existing model name (gemini-1.5-flash)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
         "contents": formatted_history,
         "systemInstruction": {"parts": [{"text": MEDICAL_PROMPT}]},
-        "generationConfig": {"temperature": 0.2} # Factual, precise medical tone
+        "generationConfig": {"temperature": 0.2} 
     }
     
     try:
         response = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload)
-        result = response.json()
+        
+        # FIX: Safely parse JSON to prevent the "Expecting value" crash
+        try:
+            result = response.json()
+        except ValueError:
+            return jsonify({"error": f"Invalid API response from Google (Status {response.status_code}). Please verify your Gemini API key."}), 500
         
         if response.status_code != 200:
             error_msg = result.get('error', {}).get('message', 'Unknown Gemini API Error')
-            return jsonify({"error": f"API Error: {error_msg}"}), 500
+            return jsonify({"error": f"Google API Error: {error_msg}"}), 500
         
         if 'candidates' in result and len(result['candidates']) > 0:
             bot_text = result['candidates'][0]['content']['parts'][0]['text']
             
             # 3. STORE RESULT: Save new Q&A to Postgres
-            conn = get_db_connection()
-            cur = conn.cursor()
             try:
+                conn = get_db_connection()
+                cur = conn.cursor()
                 cur.execute('INSERT INTO knowledge_base (question, answer, source) VALUES (%s, %s, %s)', 
                           (last_user_msg, bot_text, 'gemini'))
                 conn.commit()
-            finally:
                 cur.close()
                 conn.close()
+            except Exception as e:
+                print(f"Could not cache AI response to DB: {e}")
                 
             return jsonify({"response": bot_text, "source": "gemini"}), 200
         else:
             return jsonify({"error": "Received empty response from AI."}), 500
+            
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/admin/kb', methods=['GET', 'POST'])
 def handle_kb():
-    conn = get_db_connection()
     try:
+        conn = get_db_connection()
         if request.method == 'GET':
             cur = conn.cursor(row_factory=dict_row)
             cur.execute('SELECT * FROM knowledge_base ORDER BY id DESC')
             entries = cur.fetchall()
             cur.close()
+            conn.close()
             return jsonify(entries), 200
             
         if request.method == 'POST':
@@ -227,42 +237,47 @@ def handle_kb():
                        (data['question'], data['answer'], data.get('source', 'manual')))
             conn.commit()
             cur.close()
+            conn.close()
             return jsonify({"message": "Entry added"}), 201
-    finally:
-        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/admin/kb/<int:kb_id>', methods=['PUT', 'DELETE'])
 def manage_kb_item(kb_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
     try:
+        conn = get_db_connection()
+        cur = conn.cursor()
         if request.method == 'PUT':
             data = request.json
             cur.execute('UPDATE knowledge_base SET question=%s, answer=%s, source=%s WHERE id=%s',
                        (data['question'], data['answer'], data.get('source', 'manual'), kb_id))
             conn.commit()
-            return jsonify({"message": "Entry updated"}), 200
+            msg = "Entry updated"
             
         if request.method == 'DELETE':
             cur.execute('DELETE FROM knowledge_base WHERE id=%s', (kb_id,))
             conn.commit()
-            return jsonify({"message": "Entry deleted"}), 200
-    finally:
+            msg = "Entry deleted"
+            
         cur.close()
         conn.close()
+        return jsonify({"message": msg}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/admin/export', methods=['GET'])
 def export_kb():
-    conn = get_db_connection()
-    cur = conn.cursor(row_factory=dict_row)
     try:
+        conn = get_db_connection()
+        cur = conn.cursor(row_factory=dict_row)
         cur.execute('SELECT question, answer, source FROM knowledge_base')
         entries = cur.fetchall()
-        return Response(json.dumps(entries, indent=4), mimetype='application/json',
-                        headers={"Content-Disposition": "attachment;filename=medical_kb.json"})
-    finally:
         cur.close()
         conn.close()
+        return Response(json.dumps(entries, indent=4), mimetype='application/json',
+                        headers={"Content-Disposition": "attachment;filename=medical_kb.json"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/admin/import', methods=['POST'])
 def import_kb():
@@ -273,21 +288,18 @@ def import_kb():
             
         conn = get_db_connection()
         cur = conn.cursor()
-        try:
-            for item in data:
-                cur.execute('INSERT INTO knowledge_base (question, answer, source) VALUES (%s, %s, %s)',
-                           (item.get('question', ''), item.get('answer', ''), item.get('source', 'imported')))
-            conn.commit()
-            return jsonify({"message": f"Successfully imported {len(data)} entries."}), 200
-        finally:
-            cur.close()
-            conn.close()
+        for item in data:
+            cur.execute('INSERT INTO knowledge_base (question, answer, source) VALUES (%s, %s, %s)',
+                       (item.get('question', ''), item.get('answer', ''), item.get('source', 'imported')))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"message": f"Successfully imported {len(data)} entries."}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/')
 def serve_frontend():
-    """Serves the index.html from the same directory"""
     return send_file('index.html')
 
 if __name__ == '__main__':
