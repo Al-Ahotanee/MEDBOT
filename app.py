@@ -2,33 +2,32 @@ import os
 import sys
 import json
 import requests
-import psycopg
-from psycopg.rows import dict_row
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask import Flask, jsonify, request, Response, send_file
 from flask_cors import CORS
 
 # ==========================================
 # CONFIGURATION - USE ENVIRONMENT VARIABLES FOR PRODUCTION
 # ==========================================
-# Set these in your Render Dashboard -> Environment Variables
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "") 
-DATABASE_URL = os.environ.get("DATABASE_URL", "") # e.g., postgresql://neondb_owner:...
+DATABASE_URL = os.environ.get("DATABASE_URL", "") 
 # ==========================================
 
 app = Flask(__name__)
 CORS(app)
 
 def get_db_connection():
-    """Helper to get a database connection to Neon PostgreSQL."""
+    """Helper to get a database connection to Neon PostgreSQL using psycopg2."""
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable is not set.")
-    conn = psycopg.connect(DATABASE_URL)
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 def init_db():
     """Initializes the database tables and default admin."""
     if not DATABASE_URL:
-        print("Skipping DB Init: No DATABASE_URL provided. (Expected during local testing without Neon)")
+        print("Skipping DB Init: No DATABASE_URL provided.")
         return
 
     conn = get_db_connection()
@@ -105,7 +104,7 @@ def signup():
         cur.execute('INSERT INTO users (username, password, role) VALUES (%s, %s, %s)', (username, password, 'user'))
         conn.commit()
         return jsonify({"message": "Account created successfully", "user": username, "role": "user"}), 201
-    except psycopg.IntegrityError:
+    except psycopg2.IntegrityError:
         conn.rollback()
         return jsonify({"error": "Username already exists"}), 400
     finally:
@@ -119,7 +118,8 @@ def login():
     password = data.get('password')
     
     conn = get_db_connection()
-    cur = conn.cursor(row_factory=dict_row)
+    # Use RealDictCursor to return results as dictionaries
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute('SELECT * FROM users WHERE username = %s AND password = %s', (username, password))
         user = cur.fetchone()
@@ -143,7 +143,7 @@ def chat():
     
     # 1. OFFLINE CHECK: Scan PostgreSQL Database for an answer
     conn = get_db_connection()
-    cur = conn.cursor(row_factory=dict_row)
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute('SELECT question, answer FROM knowledge_base')
         kb_entries = cur.fetchall()
@@ -212,21 +212,23 @@ def chat():
 @app.route('/api/admin/kb', methods=['GET', 'POST'])
 def handle_kb():
     conn = get_db_connection()
-    cur = conn.cursor(row_factory=dict_row)
     try:
         if request.method == 'GET':
+            cur = conn.cursor(cursor_factory=RealDictCursor)
             cur.execute('SELECT * FROM knowledge_base ORDER BY id DESC')
             entries = cur.fetchall()
+            cur.close()
             return jsonify(entries), 200
             
         if request.method == 'POST':
+            cur = conn.cursor()
             data = request.json
             cur.execute('INSERT INTO knowledge_base (question, answer, source) VALUES (%s, %s, %s)',
                        (data['question'], data['answer'], data.get('source', 'manual')))
             conn.commit()
+            cur.close()
             return jsonify({"message": "Entry added"}), 201
     finally:
-        cur.close()
         conn.close()
 
 @app.route('/api/admin/kb/<int:kb_id>', methods=['PUT', 'DELETE'])
@@ -252,7 +254,7 @@ def manage_kb_item(kb_id):
 @app.route('/api/admin/export', methods=['GET'])
 def export_kb():
     conn = get_db_connection()
-    cur = conn.cursor(row_factory=dict_row)
+    cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute('SELECT question, answer, source FROM knowledge_base')
         entries = cur.fetchall()
@@ -289,6 +291,5 @@ def serve_frontend():
     return send_file('index.html')
 
 if __name__ == '__main__':
-    # Use PORT environment variable provided by Render
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
