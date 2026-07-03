@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediChat - Intelligent Diagnosis Assistant</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        medical: {
+                            50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc',
+                            400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1',
+                            800: '#075985', 900: '#0c4a6e'
+                        }
+                    },
+                    boxShadow: { 'glass': '0 8px 32px 0 rgba(12, 74, 110, 0.1)' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; margin: 0; }
+        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.4); }
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+        .markdown-body p { margin-bottom: 0.75rem; line-height: 1.6;}
+        .markdown-body p:last-child { margin-bottom: 0; }
+        .markdown-body a { color: #0284c7; text-decoration: underline; font-weight: 500; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem;}
+        .markdown-body strong { font-weight: 700; color: #0f172a; }
+        .bg-mesh { 
+            background-color: #ffffff;
+            background-image: radial-gradient(at 0% 0%, hsla(200,90%,90%,0.5) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, hsla(190,80%,85%,0.5) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, hsla(210,80%,95%,0.5) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, hsla(180,90%,90%,0.5) 0px, transparent 50%);
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-screen w-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const LandingPage = ({ setView }) => (
+            <div className="min-h-screen flex flex-col relative overflow-hidden bg-mesh">
+                <header className="px-6 md:px-12 py-6 flex justify-between items-center relative z-10">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-medical-600 rounded-xl flex items-center justify-center text-white text-2xl shadow-lg">
+                            <i className="ph-fill ph-heartbeat"></i>
+                        </div>
+                        <span className="font-extrabold text-2xl text-gray-900 tracking-tight">MediChat <span className="text-medical-500">AI</span></span>
+                    </div>
+                    <nav className="space-x-4">
+                        <button onClick={() => setView('login')} className="text-gray-600 hover:text-medical-800 font-semibold transition px-4 py-2">Login</button>
+                        <button onClick={() => setView('signup')} className="bg-medical-600 text-white px-6 py-2.5 rounded-full font-semibold hover:bg-medical-700 transition shadow-lg shadow-medical-600/30">Sign Up</button>
+                    </nav>
+                </header>
+
+                <main className="flex-1 flex flex-col items-center justify-center text-center px-4 relative z-10">
+                    <div className="inline-flex items-center px-4 py-2 rounded-full bg-white border border-medical-100 shadow-sm text-medical-700 font-semibold text-sm mb-8">
+                        <span className="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse"></span>
+                        Hybrid Medical Engine Active
+                    </div>
+                    <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 tracking-tight max-w-4xl mb-6 leading-tight">
+                        Understand Your Health <br/>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-medical-400 to-medical-700">In Seconds</span>
+                    </h1>
+                    <p className="text-lg md:text-xl text-gray-600 max-w-2xl mb-8 font-medium">
+                        Instant preliminary explanations for your symptoms. Powered by an extensive medical database and advanced AI analysis.
+                    </p>
+                    
+                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm p-4 rounded-xl max-w-2xl mb-10 font-medium flex items-start text-left">
+                        <i className="ph-fill ph-warning-circle text-xl mr-3 mt-0.5 text-yellow-600"></i>
+                        <p><strong>Medical Disclaimer:</strong> MediChat AI provides general informational assistance and is not a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider for medical emergencies.</p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <button onClick={() => setView('signup')} className="bg-medical-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-medical-700 transition shadow-xl shadow-medical-600/20 flex items-center justify-center">
+                            Start Consultation <i className="ph ph-stethoscope ml-2 text-xl"></i>
+                        </button>
+                        <button onClick={() => setView('login')} className="bg-white text-gray-800 px-8 py-4 rounded-full font-bold text-lg border border-gray-200 hover:bg-gray-50 transition shadow-sm flex items-center justify-center">
+                            Doctor / Admin <i className="ph ph-lock-key ml-2 text-xl"></i>
+                        </button>
+                    </div>
+                </main>
+            </div>
+        );
+
+        const AuthPage = ({ view, setView, setUserData }) => {
+            const isLogin = view === 'login';
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true); setError('');
+                
+                try {
+                    const res = await fetch(isLogin ? '/api/login' : '/api/signup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        setUserData({ username: data.user, role: data.role });
+                        setView(data.role === 'admin' ? 'admin' : 'chat');
+                    } else {
+                        setError(data.error || 'Authentication failed');
+                    }
+                } catch (err) {
+                    setError('Server connection error');
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-mesh px-4 relative">
+                    <button onClick={() => setView('landing')} className="absolute top-8 left-8 text-gray-500 hover:text-gray-800 font-semibold flex items-center bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
+                        <i className="ph ph-arrow-left mr-2"></i> Home
+                    </button>
+                    
+                    <div className="max-w-md w-full glass-panel p-8 md:p-10 rounded-3xl shadow-xl">
+                        <div className="text-center mb-8">
+                            <div className="w-14 h-14 bg-gradient-to-br from-medical-500 to-medical-700 rounded-2xl flex items-center justify-center text-white text-3xl mx-auto mb-4 shadow-lg shadow-medical-600/20">
+                                <i className="ph-fill ph-heartbeat"></i>
+                            </div>
+                            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">{isLogin ? 'Welcome Back' : 'Create Profile'}</h2>
+                            <p className="text-gray-500 mt-2 font-medium">{isLogin ? 'Sign in to your patient portal' : 'Join to start your health consultation'}</p>
+                        </div>
+                        
+                        {error && <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm font-semibold border border-red-100 flex items-center"><i className="ph-fill ph-warning-circle mr-2 text-lg"></i> {error}</div>}
+                        
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Username</label>
+                                <input required type="text" value={username} onChange={e => setUsername(e.target.value)} 
+                                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-medical-500 focus:border-transparent outline-none transition font-medium" 
+                                    placeholder="Enter username" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Password</label>
+                                <input required type="password" value={password} onChange={e => setPassword(e.target.value)} 
+                                    className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-medical-500 focus:border-transparent outline-none transition font-medium" 
+                                    placeholder="••••••••" />
+                            </div>
+                            <button disabled={loading} type="submit" 
+                                className="w-full bg-medical-600 text-white font-bold py-4 rounded-xl hover:bg-medical-700 transition disabled:opacity-70 mt-4 shadow-lg shadow-medical-600/20">
+                                {loading ? 'Processing...' : (isLogin ? 'Secure Sign In' : 'Register Securely')}
+                            </button>
+                        </form>
+                        
+                        <div className="mt-8 text-center text-sm font-medium text-gray-600">
+                            {isLogin ? "Don't have an account? " : "Already have an account? "}
+                            <button onClick={() => setView(isLogin ? 'signup' : 'login')} className="text-medical-700 font-bold hover:underline">
+                                {isLogin ? 'Sign Up' : 'Log In'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ChatInterface = ({ userData, setView, setUserData }) => {
+            const [messages, setMessages] = useState([{ 
+                role: 'model', 
+                text: `Hello ${userData.username}. I am MediChat, your AI Health Assistant. Please describe your symptoms in detail. \n\n*Remember, I am an AI and cannot provide professional medical diagnoses.*`,
+                source: 'system' 
+            }]);
+            const [input, setInput] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const messagesEndRef = useRef(null);
+
+            useEffect(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, isLoading]);
+
+            const handleSend = async () => {
+                if (!input.trim() || isLoading) return;
+                const newMsg = input.trim();
+                setInput('');
+                
+                const updatedMessages = [...messages, { role: 'user', text: newMsg }];
+                setMessages(updatedMessages);
+                setIsLoading(true);
+
+                try {
+                    const res = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ messages: updatedMessages.map(m => ({role: m.role, text: m.text})) })
+                    });
+                    const data = await res.json();
+                    
+                    if (res.ok) {
+                        setMessages(prev => [...prev, { role: 'model', text: data.response, source: data.source }]);
+                    } else {
+                        setMessages(prev => [...prev, { role: 'model', text: `Error: ${data.error}`, source: 'error' }]);
+                    }
+                } catch (e) {
+                    setMessages(prev => [...prev, { role: 'model', text: 'Network error connecting to the diagnosis server.', source: 'error' }]);
+                }
+                setIsLoading(false);
+            };
+
+            const logout = () => { setUserData(null); setView('landing'); };
+
+            // Simple Markdown parser
+            const parseMarkdown = (text) => {
+                let html = text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+                    .replace(/\n/g, '<br/>');
+                
+                const lines = html.split('<br/>');
+                let result = '', inList = false;
+                for(let line of lines) {
+                    if(line.startsWith('- ') || line.startsWith('* ')) {
+                        if(!inList) { result += '<ul class="list-disc pl-5 my-2">'; inList = true; }
+                        result += `<li>${line.substring(2)}</li>`;
+                    } else {
+                        if(inList) { result += '</ul>'; inList = false; }
+                        result += `<p>${line}</p>`;
+                    }
+                }
+                if(inList) result += '</ul>';
+                return { __html: result };
+            };
+
+            return (
+                <div className="flex flex-col h-screen bg-gray-50 font-sans">
+                    <header className="glass-panel px-6 py-4 flex justify-between items-center border-b border-gray-200 z-10 sticky top-0 shadow-sm">
+                        <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-medical-600 rounded-xl flex items-center justify-center text-white text-2xl shadow-md">
+                                <i className="ph-fill ph-heartbeat"></i>
+                            </div>
+                            <div>
+                                <h1 className="font-extrabold text-gray-900 leading-tight text-lg">MediChat AI</h1>
+                                <p className="text-medical-600 text-xs font-bold flex items-center tracking-wide uppercase"><span className="w-2 h-2 rounded-full bg-medical-500 mr-1.5 animate-pulse"></span>Clinical Engine</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            {userData.role === 'admin' && (
+                                <button onClick={() => setView('admin')} className="hidden sm:flex items-center text-sm font-bold text-medical-700 bg-medical-50 px-4 py-2 rounded-lg hover:bg-medical-100 transition border border-medical-200">
+                                    <i className="ph ph-shield-check mr-2 text-lg"></i> Admin Panel
+                                </button>
+                            )}
+                            <button onClick={logout} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 transition" title="Log Out">
+                                <i className="ph ph-sign-out text-lg"></i>
+                            </button>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 flex flex-col max-w-4xl w-full mx-auto">
+                        {messages.map((msg, idx) => (
+                            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                                <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%]`}>
+                                    <div className={`rounded-2xl px-5 py-4 shadow-sm ${
+                                        msg.role === 'user' 
+                                            ? 'bg-medical-600 text-white rounded-tr-sm' 
+                                            : msg.source === 'error'
+                                                ? 'bg-red-50 text-red-800 border border-red-200 rounded-tl-sm'
+                                                : 'bg-white text-gray-800 border border-gray-100 rounded-tl-sm markdown-body'
+                                    }`} dangerouslySetInnerHTML={msg.role === 'model' ? parseMarkdown(msg.text) : undefined}>
+                                        {msg.role === 'user' ? msg.text : null}
+                                    </div>
+                                    
+                                    {/* Source Indicator */}
+                                    {msg.role === 'model' && msg.source && msg.source !== 'system' && msg.source !== 'error' && (
+                                        <span className="text-[10px] font-bold text-gray-400 mt-1 flex items-center px-1 uppercase tracking-wider">
+                                            {msg.source === 'offline' 
+                                                ? <><i className="ph-fill ph-lightning mr-1 text-medical-500"></i> Clinic DB (Verified)</>
+                                                : <><i className="ph-fill ph-brain mr-1 text-purple-500"></i> AI Generated (Saved)</>
+                                            }
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                        {isLoading && (
+                            <div className="flex justify-start">
+                                <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-sm px-5 py-4 w-24">
+                                    <div className="flex space-x-1 items-center justify-center h-4">
+                                        <div className="w-2 h-2 bg-medical-400 rounded-full typing-dot"></div>
+                                        <div className="w-2 h-2 bg-medical-400 rounded-full typing-dot"></div>
+                                        <div className="w-2 h-2 bg-medical-400 rounded-full typing-dot"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </main>
+
+                    <footer className="glass-panel p-4 border-t border-gray-200 sticky bottom-0">
+                        <div className="max-w-4xl mx-auto relative flex items-center">
+                            <input
+                                type="text" value={input} onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                placeholder="E.g., I have had a severe headache and fever for 2 days..."
+                                className="w-full bg-white border border-gray-300 shadow-inner rounded-full pl-6 pr-14 py-4 focus:outline-none focus:ring-2 focus:ring-medical-500 font-medium"
+                            />
+                            <button onClick={handleSend} disabled={!input.trim() || isLoading}
+                                className={`absolute right-2 w-11 h-11 rounded-full flex items-center justify-center transition-all ${
+                                    input.trim() && !isLoading ? 'bg-medical-600 text-white hover:bg-medical-700 shadow-md transform hover:scale-105' : 'bg-gray-100 text-gray-400'
+                                }`}>
+                                <i className="ph-fill ph-paper-plane-right text-lg"></i>
+                            </button>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const AdminDashboard = ({ userData, setView, setUserData }) => {
+            const [kbEntries, setKbEntries] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [isEditing, setIsEditing] = useState(false);
+            const [currentEntry, setCurrentEntry] = useState({ question: '', answer: '' });
+
+            const fetchKB = async () => {
+                setLoading(true);
+                try {
+                    const res = await fetch('/api/admin/kb');
+                    const data = await res.json();
+                    setKbEntries(data);
+                } catch(e) { console.error(e); }
+                setLoading(false);
+            };
+
+            useEffect(() => { fetchKB(); }, []);
+
+            const handleSave = async (e) => {
+                e.preventDefault();
+                const method = currentEntry.id ? 'PUT' : 'POST';
+                const url = currentEntry.id ? `/api/admin/kb/${currentEntry.id}` : '/api/admin/kb';
+                
+                await fetch(url, {
+                    method, headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(currentEntry)
+                });
+                setIsEditing(false);
+                setCurrentEntry({ question: '', answer: '' });
+                fetchKB();
+            };
+
+            const handleDelete = async (id) => {
+                if(confirm('Delete this medical entry?')) {
+                    await fetch(`/api/admin/kb/${id}`, { method: 'DELETE' });
+                    fetchKB();
+                }
+            };
+
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (evt) => {
+                    try {
+                        const json = JSON.parse(evt.target.result);
+                        await fetch('/api/admin/import', {
+                            method: 'POST', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(json)
+                        });
+                        alert('Clinical knowledge imported successfully!');
+                        fetchKB();
+                    } catch (err) { alert('Invalid JSON file format'); }
+                };
+                reader.readAsText(file);
+            };
+
+            return (
+                <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
+                    {/* Sidebar */}
+                    <aside className="w-64 bg-medical-900 text-white flex flex-col hidden md:flex">
+                        <div className="p-6 border-b border-medical-800">
+                            <div className="flex items-center space-x-3 mb-2">
+                                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-medical-900 text-xl shadow-md">
+                                    <i className="ph-fill ph-heartbeat"></i>
+                                </div>
+                                <h1 className="font-extrabold text-xl">Admin Panel</h1>
+                            </div>
+                            <p className="text-medical-200 text-xs font-medium">Clinical Database Manager</p>
+                        </div>
+                        <nav className="flex-1 p-4 space-y-2">
+                            <a href="#" className="flex items-center px-4 py-3 bg-medical-800 rounded-xl font-semibold text-white"><i className="ph ph-database mr-3 text-xl"></i> Knowledge Base</a>
+                            <button onClick={() => setView('chat')} className="w-full flex items-center px-4 py-3 text-medical-200 hover:bg-medical-800 rounded-xl font-semibold transition"><i className="ph ph-stethoscope mr-3 text-xl"></i> Back to Consult</button>
+                        </nav>
+                        <div className="p-4 border-t border-medical-800">
+                            <button onClick={() => {setUserData(null); setView('landing');}} className="w-full flex items-center px-4 py-2 text-red-300 hover:bg-red-900/50 rounded-xl font-semibold transition"><i className="ph ph-sign-out mr-3 text-xl"></i> Secure Logout</button>
+                        </div>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+                        {/* Mobile Header */}
+                        <header className="md:hidden bg-medical-900 text-white p-4 flex justify-between items-center">
+                            <h1 className="font-extrabold flex items-center"><i className="ph-fill ph-heartbeat mr-2"></i> Admin</h1>
+                            <div className="space-x-2">
+                                <button onClick={() => setView('chat')} className="p-2 bg-medical-800 rounded"><i className="ph ph-stethoscope"></i></button>
+                                <button onClick={() => {setUserData(null); setView('landing');}} className="p-2 bg-red-900/50 rounded text-red-300"><i className="ph ph-sign-out"></i></button>
+                            </div>
+                        </header>
+
+                        <div className="p-6 md:p-8 flex-1 overflow-y-auto">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                                <div>
+                                    <h2 className="text-2xl font-extrabold text-gray-900">Clinical Knowledge Base</h2>
+                                    <p className="text-gray-500 font-medium mt-1">Manage verified medical responses and cached AI queries.</p>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={() => { setCurrentEntry({ question: '', answer: '' }); setIsEditing(true); }} className="bg-medical-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md hover:bg-medical-700 transition flex items-center">
+                                        <i className="ph ph-plus-circle mr-2 text-lg"></i> Add Entry
+                                    </button>
+                                    <div className="relative">
+                                        <input type="file" accept=".json" onChange={handleImport} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Import JSON" />
+                                        <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition flex items-center shadow-sm">
+                                            <i className="ph ph-upload-simple mr-2"></i> Import
+                                        </button>
+                                    </div>
+                                    <a href="/api/admin/export" target="_blank" className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-50 transition flex items-center shadow-sm">
+                                        <i className="ph ph-download-simple mr-2"></i> Export
+                                    </a>
+                                </div>
+                            </div>
+
+                            {/* Data Table */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 text-gray-600 text-sm border-b border-gray-100">
+                                                <th className="p-4 font-bold">Source</th>
+                                                <th className="p-4 font-bold">Query / Symptom</th>
+                                                <th className="p-4 font-bold">Clinical Answer</th>
+                                                <th className="p-4 font-bold text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {loading ? <tr><td colSpan="4" className="p-8 text-center text-gray-500 font-medium">Loading database...</td></tr> : 
+                                             kbEntries.length === 0 ? <tr><td colSpan="4" className="p-8 text-center text-gray-500 font-medium">No records found.</td></tr> :
+                                             kbEntries.map(entry => (
+                                                <tr key={entry.id} className="hover:bg-gray-50 transition">
+                                                    <td className="p-4 align-top">
+                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${
+                                                            entry.source === 'gemini' ? 'bg-purple-100 text-purple-700' : 
+                                                            entry.source === 'imported' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                                        }`}>
+                                                            {entry.source}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 align-top max-w-[200px] font-semibold text-gray-800">{entry.question}</td>
+                                                    <td className="p-4 align-top text-gray-600 text-sm">
+                                                        <div className="line-clamp-3">{entry.answer}</div>
+                                                    </td>
+                                                    <td className="p-4 align-top text-right space-x-2 whitespace-nowrap">
+                                                        <button onClick={() => { setCurrentEntry(entry); setIsEditing(true); }} className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition"><i className="ph ph-pencil-simple text-lg"></i></button>
+                                                        <button onClick={() => handleDelete(entry.id)} className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition"><i className="ph ph-trash text-lg"></i></button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Edit/Add Modal */}
+                        {isEditing && (
+                            <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl">
+                                    <h3 className="text-2xl font-extrabold text-gray-900 mb-6">{currentEntry.id ? 'Edit Record' : 'Add Clinical Data'}</h3>
+                                    <form onSubmit={handleSave} className="space-y-5">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">Symptoms or Query</label>
+                                            <input required type="text" value={currentEntry.question} onChange={e => setCurrentEntry({...currentEntry, question: e.target.value})}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-medical-500 outline-none font-medium" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-700 mb-2">Response (Supports Markdown formatting)</label>
+                                            <textarea required rows="6" value={currentEntry.answer} onChange={e => setCurrentEntry({...currentEntry, answer: e.target.value})}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-medical-500 outline-none font-medium resize-none"></textarea>
+                                        </div>
+                                        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                                            <button type="button" onClick={() => setIsEditing(false)} className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition">Cancel</button>
+                                            <button type="submit" className="bg-medical-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:bg-medical-800 transition">Save Record</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('landing');
+            const [userData, setUserData] = useState(null);
+
+            if (view === 'landing') return <LandingPage setView={setView} />;
+            if (view === 'login' || view === 'signup') return <AuthPage view={view} setView={setView} setUserData={setUserData} />;
+            if (view === 'chat' && userData) return <ChatInterface userData={userData} setView={setView} setUserData={setUserData} />;
+            if (view === 'admin' && userData?.role === 'admin') return <AdminDashboard userData={userData} setView={setView} setUserData={setUserData} />;
+            
+            return <LandingPage setView={setView} />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
