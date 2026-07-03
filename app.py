@@ -2,8 +2,8 @@ import os
 import sys
 import json
 import requests
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg.rows import dict_row
 from flask import Flask, jsonify, request, Response, send_file
 from flask_cors import CORS
 
@@ -22,7 +22,7 @@ def get_db_connection():
     """Helper to get a database connection to Neon PostgreSQL."""
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable is not set.")
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg.connect(DATABASE_URL)
     return conn
 
 def init_db():
@@ -105,7 +105,7 @@ def signup():
         cur.execute('INSERT INTO users (username, password, role) VALUES (%s, %s, %s)', (username, password, 'user'))
         conn.commit()
         return jsonify({"message": "Account created successfully", "user": username, "role": "user"}), 201
-    except psycopg2.IntegrityError:
+    except psycopg.IntegrityError:
         conn.rollback()
         return jsonify({"error": "Username already exists"}), 400
     finally:
@@ -119,7 +119,7 @@ def login():
     password = data.get('password')
     
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     try:
         cur.execute('SELECT * FROM users WHERE username = %s AND password = %s', (username, password))
         user = cur.fetchone()
@@ -143,7 +143,7 @@ def chat():
     
     # 1. OFFLINE CHECK: Scan PostgreSQL Database for an answer
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     try:
         cur.execute('SELECT question, answer FROM knowledge_base')
         kb_entries = cur.fetchall()
@@ -212,7 +212,7 @@ def chat():
 @app.route('/api/admin/kb', methods=['GET', 'POST'])
 def handle_kb():
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     try:
         if request.method == 'GET':
             cur.execute('SELECT * FROM knowledge_base ORDER BY id DESC')
@@ -252,7 +252,7 @@ def manage_kb_item(kb_id):
 @app.route('/api/admin/export', methods=['GET'])
 def export_kb():
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur = conn.cursor(row_factory=dict_row)
     try:
         cur.execute('SELECT question, answer, source FROM knowledge_base')
         entries = cur.fetchall()
