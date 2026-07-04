@@ -1,5 +1,5 @@
 Flask==3.0.3
-Flask-Cors==4.0.1
-gunicorn==22.0.0
+flask-cors==4.0.1
 requests==2.31.0
-psycopg[binary]
+psycopg2-binary==2.9.9
+gunicorn==21.2.0
