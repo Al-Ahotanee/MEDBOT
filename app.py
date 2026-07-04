@@ -10,7 +10,7 @@ from flask_cors import CORS
 # CONFIGURATION
 # ==========================================
 # Make sure to set these Environment Variables in your Render/Neon dashboard
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:password@localhost:5432/medibot")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_3BJRzb0nuDHW@ep-jolly-sunset-ait3s9cw-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6K69_oQdtu0Xr3atj4-e1rBDLIl93gps2lzK3uTmLAfJA")
 # ==========================================
 
